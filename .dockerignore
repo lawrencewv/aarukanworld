@@ -1,0 +1,8 @@
+.git
+.idea
+**/*_test.go
+*.md
+Dockerfile
+fly.toml
+.dockerignore
+/data/

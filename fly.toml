@@ -1,0 +1,41 @@
+# fly.toml app configuration file for aarukan-world
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+# Create once:  fly apps create aarukan-world
+# Deploy:       fly deploy
+# Secret:       fly secrets set PLAY_TOKEN_SECRET="…" -a aarukan-world
+
+app = 'aarukan-world'
+primary_region = 'lhr'
+
+[build]
+
+# Hot worlds live in this process. Never run more than one Machine until worlds
+# are sticky-routed; otherwise peers for the same world_id land on different
+# instances and never see each other.
+# After every deploy:  fly scale count 1 -a aarukan-world
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '2s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/healthz'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
+  cpus = 1
+
+[mounts]
+  source = 'aarukan_world_data'
+  destination = '/data'
