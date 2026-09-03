@@ -159,13 +159,7 @@ func (w *World) loadChunk(coord persist.ChunkCoord) (*persist.Chunk, error) {
 		return nil, err
 	}
 	if c == nil {
-		c = persist.EmptyChunk(coord)
-		// Flat creative floor at y=64 for ungenerated chunks.
-		for x := 0; x < persist.ChunkSize; x++ {
-			for z := 0; z < persist.ChunkSize; z++ {
-				c.Blocks[persist.BlockIndex(x, 64, z)] = 1
-			}
-		}
+		c = persist.GenerateChunk(coord)
 	}
 	w.chunks[coord] = c
 	return c, nil

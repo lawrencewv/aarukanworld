@@ -5,8 +5,8 @@ import "context"
 // ChunkSize is the horizontal extent of one chunk (Minecraft-like).
 const ChunkSize = 16
 
-// ChunkHeight is the vertical extent of one chunk column for v1.
-const ChunkHeight = 128
+// ChunkHeight is the vertical extent of one chunk column (matches the Godot client).
+const ChunkHeight = 64
 
 // ChunkCoord identifies a chunk column in world space.
 type ChunkCoord struct {
@@ -15,7 +15,7 @@ type ChunkCoord struct {
 }
 
 // Chunk holds block IDs for one column. Blocks are stored as
-// index = ((y * ChunkSize) + z) * ChunkSize + x with 0 = air.
+// index = x + ChunkSize * (y + ChunkHeight * z), matching the Godot client.
 type Chunk struct {
 	Coord  ChunkCoord
 	Blocks []uint16 // len == ChunkSize*ChunkSize*ChunkHeight when loaded
@@ -31,7 +31,7 @@ func EmptyChunk(coord ChunkCoord) *Chunk {
 
 // BlockIndex returns the flat index for local (x,y,z) inside a chunk.
 func BlockIndex(x, y, z int) int {
-	return ((y * ChunkSize) + z) * ChunkSize + x
+	return x + ChunkSize*(y+ChunkHeight*z)
 }
 
 // Store is the chunk persistence boundary. File/SQLite first; object storage later.

@@ -24,20 +24,19 @@ const (
 
 // Message is a JSON-friendly game frame.
 type Message struct {
-	Type    string  `json:"type"`
-	Nick    string  `json:"nick,omitempty"`
-	WorldID string  `json:"world_id,omitempty"`
-	Text    string  `json:"text,omitempty"`
-	X       float64 `json:"x,omitempty"`
-	Y       float64 `json:"y,omitempty"`
-	Z       float64 `json:"z,omitempty"`
-	Yaw     float64 `json:"yaw,omitempty"`
-	Pitch   float64 `json:"pitch,omitempty"`
-	Block   uint16  `json:"block,omitempty"`
-	CX      int32   `json:"cx,omitempty"`
-	CZ      int32   `json:"cz,omitempty"`
-	// Blocks is a dense row-major list for chunk_data (optional; large).
-	Blocks []uint16 `json:"blocks,omitempty"`
+	Type    string   `json:"type"`
+	Nick    string   `json:"nick,omitempty"`
+	WorldID string   `json:"world_id,omitempty"`
+	Text    string   `json:"text,omitempty"`
+	X       float64  `json:"x"`
+	Y       float64  `json:"y"`
+	Z       float64  `json:"z"`
+	Yaw     float64  `json:"yaw"`
+	Pitch   float64  `json:"pitch"`
+	Block   uint16   `json:"block"`
+	CX      int32    `json:"cx"`
+	CZ      int32    `json:"cz"`
+	Blocks  []uint16 `json:"blocks,omitempty"`
 }
 
 func chunkCoordFromBlock(bx, bz int32) persist.ChunkCoord {

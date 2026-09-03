@@ -96,6 +96,7 @@ func (s *Server) handleWorldWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+	conn.SetReadLimit(4 << 20)
 	peer.SetConn(conn)
 	defer peer.SetConn(nil)
 	defer s.hub.Detach(peer.ID)
