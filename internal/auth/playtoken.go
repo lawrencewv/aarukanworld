@@ -19,6 +19,7 @@ type PlayClaims struct {
 	WorldID string `json:"world_id"`
 	Exp     int64  `json:"exp"` // unix seconds
 	Session string `json:"session,omitempty"`
+	Gen     int    `json:"gen,omitempty"`
 }
 
 var (
