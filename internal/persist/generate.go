@@ -28,9 +28,17 @@ func GenerateChunk(coord ChunkCoord) *Chunk {
 			for y := 0; y < ChunkHeight; y++ {
 				c.Blocks[BlockIndex(lx, y, lz)] = columnBlock(wx, y, wz, h)
 			}
-			if h+5 < ChunkHeight && shouldPlantTree(wx, wz) {
-				plantTree(c, lx, h+1, lz)
+		}
+	}
+	// Include neighbor trunks so canopies aren't clipped at chunk borders.
+	const treeMargin = 2
+	for wz := oz - treeMargin; wz < oz+ChunkSize+treeMargin; wz++ {
+		for wx := ox - treeMargin; wx < ox+ChunkSize+treeMargin; wx++ {
+			h := HeightAt(wx, wz)
+			if h+8 >= ChunkHeight || !shouldPlantTree(wx, wz) {
+				continue
 			}
+			plantTreeInChunk(c, ox, oz, wx, h+1, wz)
 		}
 	}
 	if coord.X == 0 && coord.Z == 0 {
@@ -40,10 +48,17 @@ func GenerateChunk(coord ChunkCoord) *Chunk {
 }
 
 // HeightAt is the surface Y for world (x, z).
+// Rolling hills with frequent mountain peaks (mirrors aarukanclient VoxelWorld.height_at).
 func HeightAt(x, z int) int {
-	n := smoothNoise(x, z, 12.0)
-	d := smoothNoise(x+19, z-7, 4.0)
-	h := int(math.Round(26.0 + n*10.0 + d*4.0))
+	n := smoothNoise(x, z, 64.0)
+	d := smoothNoise(x+19, z-7, 28.0)
+	mRaw := smoothNoise(x-41, z+23, 140.0)
+	m := mRaw + 0.2
+	if m < 0 {
+		m = 0
+	}
+	m = m * m
+	h := int(math.Round(26.0 + n*5.0 + d*1.5 + m*28.0))
 	if h < 4 {
 		h = 4
 	}
@@ -83,18 +98,27 @@ func shouldPlantTree(wx, wz int) bool {
 	return h%11 == 0
 }
 
-func plantTree(c *Chunk, lx, baseY, lz int) {
-	for i := 0; i < 4; i++ {
-		y := baseY + i
-		if y >= ChunkHeight {
-			return
+func plantTreeInChunk(c *Chunk, ox, oz, wx, baseY, wz int) {
+	const trunkH = 6
+	lx := wx - ox
+	lz := wz - oz
+	if lx >= 0 && lx < ChunkSize && lz >= 0 && lz < ChunkSize {
+		for i := 0; i < trunkH; i++ {
+			y := baseY + i
+			if y >= ChunkHeight {
+				break
+			}
+			c.Blocks[BlockIndex(lx, y, lz)] = BlockOakLog
 		}
-		c.Blocks[BlockIndex(lx, y, lz)] = BlockOakLog
 	}
-	for dy := 2; dy <= 4; dy++ {
-		for dx := -2; dx <= 2; dx++ {
-			for dz := -2; dz <= 2; dz++ {
-				if abs(dx)+abs(dz) > 3 {
+	for dy := trunkH - 3; dy <= trunkH+1; dy++ {
+		radius := 2
+		if dy >= trunkH {
+			radius = 1
+		}
+		for dx := -radius; dx <= radius; dx++ {
+			for dz := -radius; dz <= radius; dz++ {
+				if abs(dx)+abs(dz) > radius+1 {
 					continue
 				}
 				y := baseY + dy
