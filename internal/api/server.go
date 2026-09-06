@@ -26,8 +26,8 @@ func NewServer(hub *world.Hub) *Server {
 		hub: hub,
 		mux: http.NewServeMux(),
 		upgrader: websocket.Upgrader{
-			ReadBufferSize:  4096,
-			WriteBufferSize: 4096,
+			ReadBufferSize:  64 << 10,
+			WriteBufferSize: 512 << 10, // chunk_data JSON frames are large
 			CheckOrigin: func(r *http.Request) bool {
 				// Browser game client; tighten once origins are known.
 				return true
@@ -103,7 +103,8 @@ func (s *Server) handleWorldWS(w http.ResponseWriter, r *http.Request) {
 
 	_ = conn.SetReadDeadline(time.Now().Add(idleTimeout))
 
-	events := peer.Subscribe(256)
+	// Large enough for a preload disk of chunk replies while WriteJSON drains slowly.
+	events := peer.Subscribe(512)
 	defer peer.Unsubscribe(events)
 
 	_ = conn.WriteJSON(world.Message{

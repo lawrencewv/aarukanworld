@@ -102,9 +102,29 @@ func (p *Peer) Pose() Pose {
 }
 
 func (p *Peer) push(msg Message) {
+	// Snapshot subscribers so we never block while holding subsMu (Unsubscribe closes chans).
 	p.subsMu.Lock()
-	defer p.subsMu.Unlock()
+	subs := make([]chan Message, 0, len(p.subs))
 	for ch := range p.subs {
+		subs = append(subs, ch)
+	}
+	p.subsMu.Unlock()
+
+	// Pose/join spam may drop under load; chunk + edit delivery must not.
+	reliable := msg.Type == MsgChunkData ||
+		msg.Type == MsgBlockPlace ||
+		msg.Type == MsgBlockBreak ||
+		msg.Type == MsgError ||
+		msg.Type == MsgWelcome
+
+	for _, ch := range subs {
+		if reliable {
+			func() {
+				defer func() { _ = recover() }() // channel may be closed mid-send
+				ch <- msg
+			}()
+			continue
+		}
 		select {
 		case ch <- msg:
 		default:
