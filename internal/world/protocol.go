@@ -31,9 +31,10 @@ type Message struct {
 	X       float64  `json:"x"`
 	Y       float64  `json:"y"`
 	Z       float64  `json:"z"`
-	Yaw     float64  `json:"yaw"`
-	Pitch   float64  `json:"pitch"`
-	Block   uint16   `json:"block"`
+	Yaw      float64 `json:"yaw"`
+	Pitch    float64 `json:"pitch"`
+	Breaking bool    `json:"breaking,omitempty"`
+	Block    uint16  `json:"block"`
 	CX      int32    `json:"cx"`
 	CZ      int32    `json:"cz"`
 	Blocks  []uint16 `json:"blocks,omitempty"`

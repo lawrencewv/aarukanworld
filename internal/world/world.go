@@ -82,15 +82,16 @@ func (w *World) HandleClient(p *Peer, msg Message) {
 	case MsgPing:
 		p.push(Message{Type: MsgPong})
 	case MsgPose:
-		p.SetPose(msg.X, msg.Y, msg.Z, msg.Yaw, msg.Pitch)
+		p.SetPose(msg.X, msg.Y, msg.Z, msg.Yaw, msg.Pitch, msg.Breaking)
 		w.broadcast(Message{
-			Type:  MsgPeerPose,
-			Nick:  p.Nick,
-			X:     msg.X,
-			Y:     msg.Y,
-			Z:     msg.Z,
-			Yaw:   msg.Yaw,
-			Pitch: msg.Pitch,
+			Type:     MsgPeerPose,
+			Nick:     p.Nick,
+			X:        msg.X,
+			Y:        msg.Y,
+			Z:        msg.Z,
+			Yaw:      msg.Yaw,
+			Pitch:    msg.Pitch,
+			Breaking: msg.Breaking,
 		}, p.ID)
 	case MsgBlockPlace:
 		if err := w.applyBlock(int32(msg.X), int32(msg.Y), int32(msg.Z), msg.Block); err != nil {
