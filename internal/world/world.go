@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"sync"
+	"time"
 
 	"aarukanworld/internal/persist"
 )
@@ -130,9 +132,42 @@ func (w *World) HandleClient(p *Peer, msg Message) {
 			CZ:     chunk.Coord.Z,
 			Blocks: chunk.Blocks,
 		})
+	case MsgAttack:
+		w.handleAttack(p, msg.Nick)
 	default:
 		p.push(Message{Type: MsgError, Text: "unknown message type"})
 	}
+}
+
+func (w *World) handleAttack(attacker *Peer, targetNick string) {
+	targetNick = strings.TrimSpace(targetNick)
+	if targetNick == "" || strings.EqualFold(targetNick, attacker.Nick) {
+		return
+	}
+	w.mu.RLock()
+	target := w.peers[strings.ToLower(targetNick)]
+	w.mu.RUnlock()
+	if target == nil {
+		return
+	}
+	if !attacker.TryBeginAttack(time.Now().UTC()) {
+		return
+	}
+	ap := attacker.Pose()
+	tp := target.Pose()
+	dx := ap.X - tp.X
+	dy := ap.Y - tp.Y
+	dz := ap.Z - tp.Z
+	dist := math.Sqrt(dx*dx + dy*dy + dz*dz)
+	if dist > SwordStrikeRange {
+		return
+	}
+	health := target.ApplyDamage(SwordDamage)
+	w.broadcast(Message{
+		Type:   MsgPeerHealth,
+		Nick:   target.Nick,
+		Health: health,
+	}, "")
 }
 
 func (w *World) applyBlock(bx, by, bz int32, block uint16) error {

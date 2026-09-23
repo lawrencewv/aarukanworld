@@ -21,10 +21,12 @@ type Peer struct {
 	WorldID string
 	Session string // chat session id from play token, if present
 
-	mu        sync.RWMutex
-	pose      Pose
-	connected bool
-	closed    bool
+	mu         sync.RWMutex
+	pose       Pose
+	health     int
+	lastAttack time.Time
+	connected  bool
+	closed     bool
 
 	subsMu sync.Mutex
 	subs   map[chan Message]struct{}
@@ -40,6 +42,7 @@ func newPeer(id, nick, worldID, session string) *Peer {
 		WorldID:   worldID,
 		Session:   session,
 		connected: true,
+		health:    MaxHealth,
 		subs:      make(map[chan Message]struct{}),
 		pose: Pose{
 			Y:         80,
@@ -102,6 +105,35 @@ func (p *Peer) Pose() Pose {
 	return p.pose
 }
 
+func (p *Peer) Health() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.health
+}
+
+// TryBeginAttack returns false if the peer is still on sword cooldown.
+func (p *Peer) TryBeginAttack(now time.Time) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.lastAttack.IsZero() && now.Sub(p.lastAttack) < time.Duration(SwordAttackCooldown)*time.Millisecond {
+		return false
+	}
+	p.lastAttack = now
+	return true
+}
+
+// ApplyDamage subtracts amount from health (floored at 0) and returns the new value.
+// When health reaches 0 it resets to MaxHealth so play can continue.
+func (p *Peer) ApplyDamage(amount int) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.health -= amount
+	if p.health <= 0 {
+		p.health = MaxHealth
+	}
+	return p.health
+}
+
 func (p *Peer) push(msg Message) {
 	// Snapshot subscribers so we never block while holding subsMu (Unsubscribe closes chans).
 	p.subsMu.Lock()
@@ -115,6 +147,7 @@ func (p *Peer) push(msg Message) {
 	reliable := msg.Type == MsgChunkData ||
 		msg.Type == MsgBlockPlace ||
 		msg.Type == MsgBlockBreak ||
+		msg.Type == MsgPeerHealth ||
 		msg.Type == MsgError ||
 		msg.Type == MsgWelcome
 

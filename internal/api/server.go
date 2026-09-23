@@ -112,6 +112,7 @@ func (s *Server) handleWorldWS(w http.ResponseWriter, r *http.Request) {
 		Nick:    peer.Nick,
 		WorldID: peer.WorldID,
 		Text:    "attached",
+		Health:  peer.Health(),
 	})
 	for _, nick := range wld.PeerNicks() {
 		if strings.EqualFold(nick, peer.Nick) {
