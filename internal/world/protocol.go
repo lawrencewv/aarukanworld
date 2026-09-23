@@ -20,6 +20,7 @@ const (
 	MsgPeerPose     = "peer_pose"
 	MsgAttack       = "attack"
 	MsgPeerHealth   = "peer_health"
+	MsgRespawn      = "respawn"
 	MsgSystem       = "system"
 	MsgError        = "error"
 )
@@ -29,7 +30,8 @@ const (
 	MaxHealth           = 100
 	SwordDamage         = 10
 	SwordStrikeRange    = 3.5 // metres; slightly above client reach for lag
-	SwordAttackCooldown = 400 // milliseconds between validated thrusts
+	SwordAttackCooldown  = 400 // milliseconds between validated thrusts
+	SwordKnockbackSpeed = 6.5 // horizontal impulse applied to the victim
 )
 
 // Message is a JSON-friendly game frame.
@@ -48,7 +50,10 @@ type Message struct {
 	CX      int32    `json:"cx"`
 	CZ      int32    `json:"cz"`
 	Blocks  []uint16 `json:"blocks,omitempty"`
-	Health  int      `json:"health,omitempty"`
+	Health  int      `json:"health"`
+	KnockX  float64  `json:"knock_x,omitempty"`
+	KnockZ  float64  `json:"knock_z,omitempty"`
+	Dead    bool     `json:"dead,omitempty"`
 }
 
 func chunkCoordFromBlock(bx, bz int32) persist.ChunkCoord {

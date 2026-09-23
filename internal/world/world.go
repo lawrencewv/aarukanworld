@@ -134,6 +134,8 @@ func (w *World) HandleClient(p *Peer, msg Message) {
 		})
 	case MsgAttack:
 		w.handleAttack(p, msg.Nick)
+	case MsgRespawn:
+		w.handleRespawn(p)
 	default:
 		p.push(Message{Type: MsgError, Text: "unknown message type"})
 	}
@@ -144,10 +146,13 @@ func (w *World) handleAttack(attacker *Peer, targetNick string) {
 	if targetNick == "" || strings.EqualFold(targetNick, attacker.Nick) {
 		return
 	}
+	if !attacker.Alive() {
+		return
+	}
 	w.mu.RLock()
 	target := w.peers[strings.ToLower(targetNick)]
 	w.mu.RUnlock()
-	if target == nil {
+	if target == nil || !target.Alive() {
 		return
 	}
 	if !attacker.TryBeginAttack(time.Now().UTC()) {
@@ -163,11 +168,63 @@ func (w *World) handleAttack(attacker *Peer, targetNick string) {
 		return
 	}
 	health := target.ApplyDamage(SwordDamage)
+	kx, kz := knockbackAway(ap, tp)
 	w.broadcast(Message{
 		Type:   MsgPeerHealth,
 		Nick:   target.Nick,
 		Health: health,
+		KnockX: kx,
+		KnockZ: kz,
+		Dead:   health <= 0,
 	}, "")
+}
+
+func (w *World) handleRespawn(p *Peer) {
+	if p.Alive() {
+		return
+	}
+	sx, sy, sz := spawnPoint()
+	p.RespawnAt(sx, sy, sz)
+	pose := p.Pose()
+	w.broadcast(Message{
+		Type:   MsgPeerHealth,
+		Nick:   p.Nick,
+		Health: MaxHealth,
+		X:      sx,
+		Y:      sy,
+		Z:      sz,
+		Dead:   false,
+	}, "")
+	w.broadcast(Message{
+		Type:     MsgPeerPose,
+		Nick:     p.Nick,
+		X:        pose.X,
+		Y:        pose.Y,
+		Z:        pose.Z,
+		Yaw:      pose.Yaw,
+		Pitch:    pose.Pitch,
+		Breaking: false,
+	}, "")
+}
+
+func spawnPoint() (x, y, z float64) {
+	// Centre of the world plaza — mirrors client VoxelWorld.spawn_position().
+	return 0.5, float64(persist.HeightAt(0, 0) + 3), 0.5
+}
+
+func knockbackAway(attacker, target Pose) (kx, kz float64) {
+	awayX := target.X - attacker.X
+	awayZ := target.Z - attacker.Z
+	len := math.Hypot(awayX, awayZ)
+	if len < 0.001 {
+		awayX = -math.Sin(attacker.Yaw)
+		awayZ = -math.Cos(attacker.Yaw)
+		len = math.Hypot(awayX, awayZ)
+	}
+	if len < 0.001 {
+		return 0, 0
+	}
+	return (awayX / len) * SwordKnockbackSpeed, (awayZ / len) * SwordKnockbackSpeed
 }
 
 func (w *World) applyBlock(bx, by, bz int32, block uint16) error {

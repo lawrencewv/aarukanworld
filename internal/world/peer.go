@@ -123,15 +123,41 @@ func (p *Peer) TryBeginAttack(now time.Time) bool {
 }
 
 // ApplyDamage subtracts amount from health (floored at 0) and returns the new value.
-// When health reaches 0 it resets to MaxHealth so play can continue.
+// Already-dead peers are left at 0.
 func (p *Peer) ApplyDamage(amount int) int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.health -= amount
 	if p.health <= 0 {
-		p.health = MaxHealth
+		return 0
+	}
+	p.health -= amount
+	if p.health < 0 {
+		p.health = 0
 	}
 	return p.health
+}
+
+// Alive reports whether the peer can act and be damaged.
+func (p *Peer) Alive() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.health > 0
+}
+
+// RespawnAt restores full health and snaps the pose to the given spawn point.
+func (p *Peer) RespawnAt(x, y, z float64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.health = MaxHealth
+	p.pose = Pose{
+		X:         x,
+		Y:         y,
+		Z:         z,
+		Yaw:       p.pose.Yaw,
+		Pitch:     0,
+		Breaking:  false,
+		UpdatedAt: time.Now().UTC(),
+	}
 }
 
 func (p *Peer) push(msg Message) {
