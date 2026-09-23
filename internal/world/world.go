@@ -134,6 +134,8 @@ func (w *World) HandleClient(p *Peer, msg Message) {
 		})
 	case MsgAttack:
 		w.handleAttack(p, msg.Nick)
+	case MsgArrowHit:
+		w.handleArrowHit(p, msg.Nick)
 	case MsgRespawn:
 		w.handleRespawn(p)
 	default:
@@ -142,6 +144,20 @@ func (w *World) HandleClient(p *Peer, msg Message) {
 }
 
 func (w *World) handleAttack(attacker *Peer, targetNick string) {
+	w.resolveHit(attacker, targetNick, SwordStrikeRange, SwordDamage, attacker.TryBeginAttack)
+}
+
+func (w *World) handleArrowHit(attacker *Peer, targetNick string) {
+	w.resolveHit(attacker, targetNick, ArrowMaxRange, ArrowDamage, attacker.TryBeginArrowHit)
+}
+
+func (w *World) resolveHit(
+	attacker *Peer,
+	targetNick string,
+	maxRange float64,
+	damage int,
+	beginCooldown func(time.Time) bool,
+) {
 	targetNick = strings.TrimSpace(targetNick)
 	if targetNick == "" || strings.EqualFold(targetNick, attacker.Nick) {
 		return
@@ -155,7 +171,7 @@ func (w *World) handleAttack(attacker *Peer, targetNick string) {
 	if target == nil || !target.Alive() {
 		return
 	}
-	if !attacker.TryBeginAttack(time.Now().UTC()) {
+	if !beginCooldown(time.Now().UTC()) {
 		return
 	}
 	ap := attacker.Pose()
@@ -164,10 +180,10 @@ func (w *World) handleAttack(attacker *Peer, targetNick string) {
 	dy := ap.Y - tp.Y
 	dz := ap.Z - tp.Z
 	dist := math.Sqrt(dx*dx + dy*dy + dz*dz)
-	if dist > SwordStrikeRange {
+	if dist > maxRange {
 		return
 	}
-	health := target.ApplyDamage(SwordDamage)
+	health := target.ApplyDamage(damage)
 	kx, kz := knockbackAway(ap, tp)
 	w.broadcast(Message{
 		Type:   MsgPeerHealth,

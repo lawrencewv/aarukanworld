@@ -1,7 +1,6 @@
 package world
 
 import (
-	"math"
 	"testing"
 	"time"
 )
@@ -135,10 +134,41 @@ func TestHandleRespawn(t *testing.T) {
 	}
 }
 
-func TestPoseDistance(t *testing.T) {
-	dx, dy, dz := 3.0, 0.0, 4.0
-	dist := math.Sqrt(dx*dx + dy*dy + dz*dz)
-	if dist != 5.0 {
-		t.Fatalf("dist = %v", dist)
+func TestHandleArrowHitInRange(t *testing.T) {
+	w := newWorld("w1", nil)
+	a := newPeer("a", "Alice", "w1", "")
+	b := newPeer("b", "Bob", "w1", "")
+	_ = w.addPeer(a)
+	_ = w.addPeer(b)
+	a.SetPose(0, 80, 0, 0, 0, false)
+	b.SetPose(20, 80, 0, 0, 0, false) // beyond sword, within arrow
+
+	events := b.Subscribe(8)
+	defer b.Unsubscribe(events)
+
+	w.HandleClient(a, Message{Type: MsgArrowHit, Nick: "Bob"})
+
+	select {
+	case msg := <-events:
+		if msg.Type != MsgPeerHealth || msg.Nick != "Bob" || msg.Health != MaxHealth-ArrowDamage {
+			t.Fatalf("unexpected arrow health msg: %+v", msg)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected peer_health from arrow hit")
+	}
+}
+
+func TestHandleArrowHitOutOfRange(t *testing.T) {
+	w := newWorld("w1", nil)
+	a := newPeer("a", "Alice", "w1", "")
+	b := newPeer("b", "Bob", "w1", "")
+	_ = w.addPeer(a)
+	_ = w.addPeer(b)
+	a.SetPose(0, 80, 0, 0, 0, false)
+	b.SetPose(ArrowMaxRange+5, 80, 0, 0, 0, false)
+
+	w.HandleClient(a, Message{Type: MsgArrowHit, Nick: "Bob"})
+	if b.Health() != MaxHealth {
+		t.Fatalf("out-of-range arrow changed health to %d", b.Health())
 	}
 }

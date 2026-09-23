@@ -21,12 +21,13 @@ type Peer struct {
 	WorldID string
 	Session string // chat session id from play token, if present
 
-	mu         sync.RWMutex
-	pose       Pose
-	health     int
-	lastAttack time.Time
-	connected  bool
-	closed     bool
+	mu           sync.RWMutex
+	pose         Pose
+	health       int
+	lastAttack   time.Time
+	lastArrowHit time.Time
+	connected    bool
+	closed       bool
 
 	subsMu sync.Mutex
 	subs   map[chan Message]struct{}
@@ -119,6 +120,17 @@ func (p *Peer) TryBeginAttack(now time.Time) bool {
 		return false
 	}
 	p.lastAttack = now
+	return true
+}
+
+// TryBeginArrowHit returns false if the peer is still on arrow-hit cooldown.
+func (p *Peer) TryBeginArrowHit(now time.Time) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.lastArrowHit.IsZero() && now.Sub(p.lastArrowHit) < time.Duration(ArrowAttackCooldown)*time.Millisecond {
+		return false
+	}
+	p.lastArrowHit = now
 	return true
 }
 

@@ -19,19 +19,23 @@ const (
 	MsgPeerLeave    = "peer_leave"
 	MsgPeerPose     = "peer_pose"
 	MsgAttack       = "attack"
+	MsgArrowHit     = "arrow_hit"
 	MsgPeerHealth   = "peer_health"
 	MsgRespawn      = "respawn"
 	MsgSystem       = "system"
 	MsgError        = "error"
 )
 
-// Combat defaults for sword melee.
+// Combat defaults for sword melee / bow.
 const (
 	MaxHealth           = 100
 	SwordDamage         = 10
 	SwordStrikeRange    = 3.5 // metres; slightly above client reach for lag
 	SwordAttackCooldown  = 400 // milliseconds between validated thrusts
 	SwordKnockbackSpeed = 6.5 // horizontal impulse applied to the victim
+	ArrowDamage         = 10
+	ArrowMaxRange       = 52.0 // metres; matches client arrow flight budget
+	ArrowAttackCooldown  = 450 // milliseconds between validated arrow hits
 )
 
 // Message is a JSON-friendly game frame.
