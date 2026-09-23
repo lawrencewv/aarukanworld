@@ -84,7 +84,7 @@ func (w *World) HandleClient(p *Peer, msg Message) {
 	case MsgPing:
 		p.push(Message{Type: MsgPong})
 	case MsgPose:
-		p.SetPose(msg.X, msg.Y, msg.Z, msg.Yaw, msg.Pitch, msg.Breaking)
+		p.SetPose(msg.X, msg.Y, msg.Z, msg.Yaw, msg.Pitch, msg.Breaking, msg.Held, msg.Drawing)
 		w.broadcast(Message{
 			Type:     MsgPeerPose,
 			Nick:     p.Nick,
@@ -94,6 +94,8 @@ func (w *World) HandleClient(p *Peer, msg Message) {
 			Yaw:      msg.Yaw,
 			Pitch:    msg.Pitch,
 			Breaking: msg.Breaking,
+			Held:     msg.Held,
+			Drawing:  msg.Drawing,
 		}, p.ID)
 	case MsgBlockPlace:
 		if err := w.applyBlock(int32(msg.X), int32(msg.Y), int32(msg.Z), msg.Block); err != nil {

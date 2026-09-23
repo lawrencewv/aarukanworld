@@ -50,6 +50,8 @@ type Message struct {
 	Yaw      float64 `json:"yaw"`
 	Pitch    float64 `json:"pitch"`
 	Breaking bool    `json:"breaking,omitempty"`
+	Held     int     `json:"held"`
+	Drawing  bool    `json:"drawing,omitempty"`
 	Block    uint16  `json:"block"`
 	CX      int32    `json:"cx"`
 	CZ      int32    `json:"cz"`
