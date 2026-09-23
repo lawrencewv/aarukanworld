@@ -13,6 +13,7 @@ type Pose struct {
 	Breaking   bool
 	Held       int
 	Drawing    bool
+	Swinging   bool
 	UpdatedAt  time.Time
 }
 
@@ -96,11 +97,11 @@ func (p *Peer) Unsubscribe(ch chan Message) {
 	}
 }
 
-func (p *Peer) SetPose(x, y, z, yaw, pitch float64, breaking bool, held int, drawing bool) {
+func (p *Peer) SetPose(x, y, z, yaw, pitch float64, breaking bool, held int, drawing bool, swinging bool) {
 	p.mu.Lock()
 	p.pose = Pose{
 		X: x, Y: y, Z: z, Yaw: yaw, Pitch: pitch,
-		Breaking: breaking, Held: held, Drawing: drawing,
+		Breaking: breaking, Held: held, Drawing: drawing, Swinging: swinging,
 		UpdatedAt: time.Now().UTC(),
 	}
 	p.mu.Unlock()

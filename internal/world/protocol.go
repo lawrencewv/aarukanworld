@@ -52,6 +52,7 @@ type Message struct {
 	Breaking bool    `json:"breaking,omitempty"`
 	Held     int     `json:"held"`
 	Drawing  bool    `json:"drawing,omitempty"`
+	Swinging bool    `json:"swinging,omitempty"`
 	Block    uint16  `json:"block"`
 	CX      int32    `json:"cx"`
 	CZ      int32    `json:"cz"`

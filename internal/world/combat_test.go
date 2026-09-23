@@ -70,8 +70,8 @@ func TestHandleAttackInRange(t *testing.T) {
 	if err := w.addPeer(b); err != nil {
 		t.Fatal(err)
 	}
-	a.SetPose(0, 80, 0, 0, 0, false, 0, false)
-	b.SetPose(2, 80, 0, 0, 0, false, 0, false) // within SwordStrikeRange
+	a.SetPose(0, 80, 0, 0, 0, false, 0, false, false)
+	b.SetPose(2, 80, 0, 0, 0, false, 0, false, false) // within SwordStrikeRange
 
 	events := b.Subscribe(8)
 	defer b.Unsubscribe(events)
@@ -101,8 +101,8 @@ func TestHandleAttackOutOfRange(t *testing.T) {
 	b := newPeer("b", "Bob", "w1", "")
 	_ = w.addPeer(a)
 	_ = w.addPeer(b)
-	a.SetPose(0, 80, 0, 0, 0, false, 0, false)
-	b.SetPose(SwordStrikeRange+1, 80, 0, 0, 0, false, 0, false)
+	a.SetPose(0, 80, 0, 0, 0, false, 0, false, false)
+	b.SetPose(SwordStrikeRange+1, 80, 0, 0, 0, false, 0, false, false)
 
 	w.HandleClient(a, Message{Type: MsgAttack, Nick: "Bob"})
 	if b.Health() != MaxHealth {
@@ -140,8 +140,8 @@ func TestHandleArrowHitInRange(t *testing.T) {
 	b := newPeer("b", "Bob", "w1", "")
 	_ = w.addPeer(a)
 	_ = w.addPeer(b)
-	a.SetPose(0, 80, 0, 0, 0, false, 0, false)
-	b.SetPose(20, 80, 0, 0, 0, false, 0, false) // beyond sword, within arrow
+	a.SetPose(0, 80, 0, 0, 0, false, 0, false, false)
+	b.SetPose(20, 80, 0, 0, 0, false, 0, false, false) // beyond sword, within arrow
 
 	events := b.Subscribe(8)
 	defer b.Unsubscribe(events)
@@ -164,8 +164,8 @@ func TestHandleArrowHitOutOfRange(t *testing.T) {
 	b := newPeer("b", "Bob", "w1", "")
 	_ = w.addPeer(a)
 	_ = w.addPeer(b)
-	a.SetPose(0, 80, 0, 0, 0, false, 0, false)
-	b.SetPose(ArrowMaxRange+5, 80, 0, 0, 0, false, 0, false)
+	a.SetPose(0, 80, 0, 0, 0, false, 0, false, false)
+	b.SetPose(ArrowMaxRange+5, 80, 0, 0, 0, false, 0, false, false)
 
 	w.HandleClient(a, Message{Type: MsgArrowHit, Nick: "Bob"})
 	if b.Health() != MaxHealth {
