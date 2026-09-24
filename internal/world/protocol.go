@@ -20,6 +20,8 @@ const (
 	MsgPeerPose     = "peer_pose"
 	MsgAttack       = "attack"
 	MsgArrowHit     = "arrow_hit"
+	MsgArrowShot    = "arrow_shot"
+	MsgPeerArrow    = "peer_arrow"
 	MsgPeerHealth   = "peer_health"
 	MsgRespawn      = "respawn"
 	MsgSystem       = "system"

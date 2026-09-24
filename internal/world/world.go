@@ -139,6 +139,8 @@ func (w *World) HandleClient(p *Peer, msg Message) {
 		w.handleAttack(p, msg.Nick)
 	case MsgArrowHit:
 		w.handleArrowHit(p, msg.Nick)
+	case MsgArrowShot:
+		w.handleArrowShot(p, msg)
 	case MsgRespawn:
 		w.handleRespawn(p)
 	default:
@@ -152,6 +154,25 @@ func (w *World) handleAttack(attacker *Peer, targetNick string) {
 
 func (w *World) handleArrowHit(attacker *Peer, targetNick string) {
 	w.resolveHit(attacker, targetNick, ArrowMaxRange, ArrowDamage, attacker.TryBeginArrowHit)
+}
+
+func (w *World) handleArrowShot(shooter *Peer, msg Message) {
+	// Cosmetic relay: other clients spawn a visual arrow from the shooter's bow.
+	if !shooter.Alive() {
+		return
+	}
+	dx, dy, dz := msg.X, msg.Y, msg.Z
+	len := math.Sqrt(dx*dx + dy*dy + dz*dz)
+	if len < 0.001 || len > 1.5 {
+		return
+	}
+	w.broadcast(Message{
+		Type: MsgPeerArrow,
+		Nick: shooter.Nick,
+		X:    dx / len,
+		Y:    dy / len,
+		Z:    dz / len,
+	}, shooter.ID)
 }
 
 func (w *World) resolveHit(

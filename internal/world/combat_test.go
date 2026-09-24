@@ -172,3 +172,28 @@ func TestHandleArrowHitOutOfRange(t *testing.T) {
 		t.Fatalf("out-of-range arrow changed health to %d", b.Health())
 	}
 }
+
+func TestHandleArrowShotRelaysDirection(t *testing.T) {
+	w := newWorld("w1", nil)
+	a := newPeer("a", "Alice", "w1", "")
+	b := newPeer("b", "Bob", "w1", "")
+	_ = w.addPeer(a)
+	_ = w.addPeer(b)
+
+	events := b.Subscribe(8)
+	defer b.Unsubscribe(events)
+
+	w.HandleClient(a, Message{Type: MsgArrowShot, X: 0, Y: 0, Z: -2})
+
+	select {
+	case msg := <-events:
+		if msg.Type != MsgPeerArrow || msg.Nick != "Alice" {
+			t.Fatalf("unexpected peer_arrow msg: %+v", msg)
+		}
+		if msg.X != 0 || msg.Y != 0 || msg.Z != -1 {
+			t.Fatalf("direction not normalized: (%v,%v,%v)", msg.X, msg.Y, msg.Z)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected peer_arrow relay")
+	}
+}
