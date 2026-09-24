@@ -13,6 +13,7 @@ const (
 	BlockOakPlanks uint16 = 6
 	BlockLeaves    uint16 = 7
 	BlockSand      uint16 = 8
+	BlockBedrock   uint16 = 16
 )
 
 // GenerateChunk fills a new column with a deterministic heightmap + spawn plaza.
@@ -44,7 +45,20 @@ func GenerateChunk(coord ChunkCoord) *Chunk {
 	if coord.X == 0 && coord.Z == 0 {
 		carveSpawnPlaza(c)
 	}
+	SealBedrock(c)
 	return c
+}
+
+// SealBedrock forces an unbreakable floor at y=0 (also repairs older saves).
+func SealBedrock(c *Chunk) {
+	if c == nil {
+		return
+	}
+	for lz := 0; lz < ChunkSize; lz++ {
+		for lx := 0; lx < ChunkSize; lx++ {
+			c.Blocks[BlockIndex(lx, 0, lz)] = BlockBedrock
+		}
+	}
 }
 
 // HeightAt is the surface Y for world (x, z).
@@ -69,6 +83,9 @@ func HeightAt(x, z int) int {
 }
 
 func columnBlock(x, y, z, surface int) uint16 {
+	if y == 0 {
+		return BlockBedrock
+	}
 	if y > surface {
 		return BlockAir
 	}

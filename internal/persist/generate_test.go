@@ -19,4 +19,16 @@ func TestGenerateChunkInBounds(t *testing.T) {
 	if c.Blocks[BlockIndex(0, HeightAt(0, 0), 0)] != BlockOakPlanks {
 		t.Fatalf("spawn plaza floor missing, got %d", c.Blocks[BlockIndex(0, HeightAt(0, 0), 0)])
 	}
+	if c.Blocks[BlockIndex(0, 0, 0)] != BlockBedrock {
+		t.Fatalf("bedrock floor missing, got %d", c.Blocks[BlockIndex(0, 0, 0)])
+	}
+}
+
+func TestSealBedrockRepairsFloor(t *testing.T) {
+	c := EmptyChunk(ChunkCoord{})
+	c.Blocks[BlockIndex(1, 0, 1)] = BlockAir
+	SealBedrock(c)
+	if c.Blocks[BlockIndex(1, 0, 1)] != BlockBedrock {
+		t.Fatalf("SealBedrock left air at y=0")
+	}
 }

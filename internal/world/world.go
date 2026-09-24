@@ -272,12 +272,19 @@ func (w *World) applyBlock(bx, by, bz int32, block uint16) error {
 	if !ok {
 		return fmt.Errorf("block out of range")
 	}
+	if ly == 0 {
+		return fmt.Errorf("cannot modify bedrock")
+	}
 	coord := chunkCoordFromBlock(bx, bz)
 	chunk, err := w.loadChunk(coord)
 	if err != nil {
 		return err
 	}
-	chunk.Blocks[persist.BlockIndex(lx, ly, lz)] = block
+	idx := persist.BlockIndex(lx, ly, lz)
+	if chunk.Blocks[idx] == persist.BlockBedrock && block != persist.BlockBedrock {
+		return fmt.Errorf("cannot modify bedrock")
+	}
+	chunk.Blocks[idx] = block
 	return w.store.PutChunk(context.Background(), w.ID, chunk)
 }
 
@@ -294,6 +301,7 @@ func (w *World) loadChunk(coord persist.ChunkCoord) (*persist.Chunk, error) {
 	if c == nil {
 		c = persist.GenerateChunk(coord)
 	}
+	persist.SealBedrock(c)
 	w.chunks[coord] = c
 	return c, nil
 }
