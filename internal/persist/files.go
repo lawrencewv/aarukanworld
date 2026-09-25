@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +45,10 @@ func (s *FileStore) GetChunk(_ context.Context, worldID string, coord ChunkCoord
 	}
 	want := ChunkSize * ChunkSize * ChunkHeight * 2
 	if len(data) != want {
-		return nil, fmt.Errorf("corrupt chunk %s: size %d", path, len(data))
+		// Stale files from a different ChunkHeight (or truncation) — drop and regenerate.
+		slog.Warn("discarding incompatible chunk", "path", path, "size", len(data), "want", want)
+		_ = os.Remove(path)
+		return nil, nil
 	}
 	blocks := make([]uint16, ChunkSize*ChunkSize*ChunkHeight)
 	for i := range blocks {

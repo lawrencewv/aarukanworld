@@ -62,17 +62,21 @@ func SealBedrock(c *Chunk) {
 }
 
 // HeightAt is the surface Y for world (x, z).
-// Rolling hills with frequent mountain peaks (mirrors aarukanclient VoxelWorld.height_at).
+// Broad flatlands with sparse, steep mountain peaks (mirrors aarukanclient ChunkTerrain.height_at).
 func HeightAt(x, z int) int {
-	n := smoothNoise(x, z, 64.0)
-	d := smoothNoise(x+19, z-7, 28.0)
-	mRaw := smoothNoise(x-41, z+23, 140.0)
-	m := mRaw + 0.2
+	n := smoothNoise(x, z, 130.0)
+	d := smoothNoise(x+19, z-7, 47.0)
+	mRaw := smoothNoise(x-41, z+23, 89.0)
+	m := mRaw - 0.32
 	if m < 0 {
 		m = 0
 	}
-	m = m * m
-	h := int(math.Round(26.0 + n*5.0 + d*1.5 + m*28.0))
+	m /= 0.68
+	if m > 1 {
+		m = 1
+	}
+	m = m * m * m
+	h := int(math.Round(28.0 + n*3.0 + d*1.0 + m*85.0))
 	if h < 4 {
 		h = 4
 	}
