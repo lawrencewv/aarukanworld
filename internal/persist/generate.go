@@ -13,8 +13,19 @@ const (
 	BlockOakPlanks uint16 = 6
 	BlockLeaves    uint16 = 7
 	BlockSand      uint16 = 8
+	BlockWater     uint16 = 10
 	BlockBedrock   uint16 = 16
 )
+
+const lakeSurface = 28
+
+// terrainSample is the solid surface, water top (-1 if dry), and mount factor.
+type terrainSample struct {
+	solid int
+	water int
+	mount float64
+	lake  float64
+}
 
 // GenerateChunk fills a new column with a deterministic heightmap + spawn plaza.
 func GenerateChunk(coord ChunkCoord) *Chunk {
@@ -25,9 +36,9 @@ func GenerateChunk(coord ChunkCoord) *Chunk {
 		for lx := 0; lx < ChunkSize; lx++ {
 			wx := ox + lx
 			wz := oz + lz
-			h := HeightAt(wx, wz)
+			s := sampleTerrain(wx, wz)
 			for y := 0; y < ChunkHeight; y++ {
-				c.Blocks[BlockIndex(lx, y, lz)] = columnBlock(wx, y, wz, h)
+				c.Blocks[BlockIndex(lx, y, lz)] = columnBlock(wx, y, wz, s.solid, s.water, s.mount)
 			}
 		}
 	}
@@ -35,11 +46,14 @@ func GenerateChunk(coord ChunkCoord) *Chunk {
 	const treeMargin = 2
 	for wz := oz - treeMargin; wz < oz+ChunkSize+treeMargin; wz++ {
 		for wx := ox - treeMargin; wx < ox+ChunkSize+treeMargin; wx++ {
-			h := HeightAt(wx, wz)
-			if h+8 >= ChunkHeight || !shouldPlantTree(wx, wz) {
+			s := sampleTerrain(wx, wz)
+			if s.water >= s.solid || s.mount > 28.0 {
 				continue
 			}
-			plantTreeInChunk(c, ox, oz, wx, h+1, wz)
+			if s.solid+8 >= ChunkHeight || !shouldPlantTree(wx, wz) {
+				continue
+			}
+			plantTreeInChunk(c, ox, oz, wx, s.solid+1, wz)
 		}
 	}
 	if coord.X == 0 && coord.Z == 0 {
@@ -61,46 +75,156 @@ func SealBedrock(c *Chunk) {
 	}
 }
 
-// HeightAt is the surface Y for world (x, z).
-// Broad flatlands with sparse, steep mountain peaks (mirrors aarukanclient ChunkTerrain.height_at).
+// HeightAt is the solid surface Y for world (x, z).
 func HeightAt(x, z int) int {
-	n := smoothNoise(x, z, 130.0)
-	d := smoothNoise(x+19, z-7, 47.0)
-	mRaw := smoothNoise(x-41, z+23, 89.0)
-	m := mRaw - 0.32
-	if m < 0 {
-		m = 0
-	}
-	m /= 0.68
-	if m > 1 {
-		m = 1
-	}
-	m = m * m * m
-	h := int(math.Round(28.0 + n*3.0 + d*1.0 + m*85.0))
-	if h < 4 {
-		h = 4
-	}
-	if h > ChunkHeight-8 {
-		h = ChunkHeight - 8
-	}
-	return h
+	return sampleTerrain(x, z).solid
 }
 
-func columnBlock(x, y, z, surface int) uint16 {
+// WaterAt is the water surface Y, or -1 when the column is dry.
+func WaterAt(x, z int) int {
+	return sampleTerrain(x, z).water
+}
+
+func smoothstep(edge0, edge1, x float64) float64 {
+	t := (x - edge0) / (edge1 - edge0)
+	if t < 0 {
+		t = 0
+	}
+	if t > 1 {
+		t = 1
+	}
+	return t * t * (3 - 2*t)
+}
+
+// sampleTerrain mirrors aarukanclient ChunkTerrain.terrain_sample.
+func sampleTerrain(x, z int) terrainSample {
+	fx := float64(x)
+	fz := float64(z)
+
+	plains := smoothNoise(x, z, 130.0)
+	detail := smoothNoise(x+19, z-7, 47.0)
+
+	rangeRaw := smoothNoise(x-41, z+23, 200.0)
+	rangeMask := smoothstep(0.02, 0.42, rangeRaw)
+
+	ridgeA := 1.0 - math.Abs(smoothNoise(x+7, z-11, 105.0))
+	ridgeB := 1.0 - math.Abs(smoothNoise(x-29, z+17, 90.0))
+	ridge := math.Max(ridgeA*ridgeA, ridgeB*ridgeB*0.65)
+	ridge = math.Pow(ridge, 1.35)
+
+	highland := rangeMask * ridge
+	cliff := smoothstep(0.28, 0.42, highland)
+	mount := rangeMask * ridge * (0.22+(1.0-0.22)*cliff) * 78.0
+
+	const warpAmp = 32.0
+	wx := fx + smoothNoise(x+3, z-5, 80.0)*warpAmp
+	wz := fz + smoothNoise(x+53, z-35, 80.0)*warpAmp
+	iwx := int(math.Round(wx))
+	iwz := int(math.Round(wz))
+
+	canyonN := math.Abs(smoothNoise(iwx-13, iwz+31, 55.0))
+	const canyonW = 0.11
+	canyonT := math.Max(0, canyonW-canyonN) / canyonW
+	canyonCarve := canyonT * canyonT * 40.0 * rangeMask
+
+	lakeRaw := smoothNoise(x+61, z-47, 260.0)
+	lake := smoothstep(0.50, 0.76, lakeRaw)
+	lakeCarve := lake * 14.0
+
+	riverN := math.Abs(smoothNoise(iwx+101, iwz-67, 110.0))
+	riverW := 0.032 + 0.028*(1.0-rangeMask) + 0.022*lake
+	riverT := math.Max(0, riverW-riverN) / math.Max(riverW, 0.001)
+	riverDepth := 6.0 + 5.0*rangeMask + 7.0*lake
+	riverCarve := riverT * riverT * riverDepth
+
+	base := 32.0 + plains*4.0 + detail*1.2
+	// Land height before river/canyon carves — the channel rim water fills toward.
+	bankF := base + mount - lakeCarve
+	solidF := bankF - canyonCarve - riverCarve
+	solidY := int(math.Round(solidF))
+	bankY := int(math.Round(bankF))
+
+	waterY := -1
+	if lake > 0.45 {
+		floorY := lakeSurface - 2 - int(math.Round(lake*4.0))
+		if solidY > floorY {
+			solidY = floorY
+		}
+		waterY = lakeSurface
+	}
+
+	// Rivers/canyons: flat free-surface at the bank, not a skin on the V-bed.
+	if riverCarve > 1.5 || canyonCarve > 6.0 {
+		channelSurface := bankY - 1
+		if lake > 0.25 && channelSurface < lakeSurface {
+			channelSurface = lakeSurface
+		}
+		if channelSurface > solidY && waterY < channelSurface {
+			waterY = channelSurface
+		}
+	}
+
+	if waterY >= 0 && waterY <= solidY {
+		if lake > 0.45 {
+			if solidY > lakeSurface-2 {
+				solidY = lakeSurface - 2
+			}
+			waterY = lakeSurface
+		} else {
+			waterY = -1
+		}
+	}
+
+	if solidY < 4 {
+		solidY = 4
+	}
+	if solidY > ChunkHeight-8 {
+		solidY = ChunkHeight - 8
+	}
+	if waterY >= 0 {
+		if waterY <= solidY {
+			waterY = -1
+		} else if waterY > ChunkHeight-2 {
+			waterY = ChunkHeight - 2
+		}
+	}
+
+	return terrainSample{solid: solidY, water: waterY, mount: mount, lake: lake}
+}
+
+func columnBlock(x, y, z, surface, water int, mount float64) uint16 {
 	if y == 0 {
 		return BlockBedrock
+	}
+	if water >= 0 && y > surface && y <= water {
+		return BlockWater
 	}
 	if y > surface {
 		return BlockAir
 	}
 	if y == surface {
+		if water >= surface || (water >= 0 && surface <= water+1) {
+			return BlockSand
+		}
+		if mount > 42.0 {
+			return BlockStone
+		}
+		if mount > 22.0 {
+			if (x+z)%3 == 0 {
+				return BlockStone
+			}
+			return BlockDirt
+		}
 		if surface <= 18 {
 			return BlockSand
 		}
 		return BlockGrass
 	}
 	if y >= surface-3 {
-		return BlockDirt
+		if mount < 42.0 {
+			return BlockDirt
+		}
+		return BlockStone
 	}
 	if y <= 2 {
 		return BlockStone
