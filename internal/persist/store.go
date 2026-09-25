@@ -6,7 +6,7 @@ import "context"
 const ChunkSize = 16
 
 // ChunkHeight is the vertical extent of one chunk column (matches the Godot client).
-const ChunkHeight = 128
+const ChunkHeight = 80
 
 // ChunkCoord identifies a chunk column in world space.
 type ChunkCoord struct {
