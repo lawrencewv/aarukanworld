@@ -96,6 +96,25 @@ func smoothstep(edge0, edge1, x float64) float64 {
 	return t * t * (3 - 2*t)
 }
 
+// bankHeight is uncarved land rim height (before river/canyon cuts).
+func bankHeight(x, z int) float64 {
+	plains := smoothNoise(x, z, 130.0)
+	detail := smoothNoise(x+19, z-7, 47.0)
+	rangeRaw := smoothNoise(x-41, z+23, 200.0)
+	rangeMask := smoothstep(-0.08, 0.32, rangeRaw)
+	ridgeA := 1.0 - math.Abs(smoothNoise(x+7, z-11, 105.0))
+	ridgeB := 1.0 - math.Abs(smoothNoise(x-29, z+17, 90.0))
+	ridge := math.Max(ridgeA*ridgeA, ridgeB*ridgeB*0.65)
+	ridge = math.Pow(ridge, 1.3)
+	highland := rangeMask * ridge
+	cliff := smoothstep(0.22, 0.38, highland)
+	mount := rangeMask * ridge * (0.28+(1.0-0.28)*cliff) * 82.0
+	lakeRaw := smoothNoise(x+61, z-47, 260.0)
+	lake := smoothstep(0.50, 0.76, lakeRaw)
+	base := 32.0 + plains*4.0 + detail*1.2
+	return base + mount - lake*14.0
+}
+
 // sampleTerrain mirrors aarukanclient ChunkTerrain.terrain_sample.
 func sampleTerrain(x, z int) terrainSample {
 	fx := float64(x)
@@ -105,16 +124,16 @@ func sampleTerrain(x, z int) terrainSample {
 	detail := smoothNoise(x+19, z-7, 47.0)
 
 	rangeRaw := smoothNoise(x-41, z+23, 200.0)
-	rangeMask := smoothstep(0.02, 0.42, rangeRaw)
+	rangeMask := smoothstep(-0.08, 0.32, rangeRaw)
 
 	ridgeA := 1.0 - math.Abs(smoothNoise(x+7, z-11, 105.0))
 	ridgeB := 1.0 - math.Abs(smoothNoise(x-29, z+17, 90.0))
 	ridge := math.Max(ridgeA*ridgeA, ridgeB*ridgeB*0.65)
-	ridge = math.Pow(ridge, 1.35)
+	ridge = math.Pow(ridge, 1.3)
 
 	highland := rangeMask * ridge
-	cliff := smoothstep(0.28, 0.42, highland)
-	mount := rangeMask * ridge * (0.22+(1.0-0.22)*cliff) * 78.0
+	cliff := smoothstep(0.22, 0.38, highland)
+	mount := rangeMask * ridge * (0.28+(1.0-0.28)*cliff) * 82.0
 
 	const warpAmp = 32.0
 	wx := fx + smoothNoise(x+3, z-5, 80.0)*warpAmp
@@ -134,15 +153,49 @@ func sampleTerrain(x, z int) terrainSample {
 	riverN := math.Abs(smoothNoise(iwx+101, iwz-67, 110.0))
 	riverW := 0.032 + 0.028*(1.0-rangeMask) + 0.022*lake
 	riverT := math.Max(0, riverW-riverN) / math.Max(riverW, 0.001)
-	riverDepth := 6.0 + 5.0*rangeMask + 7.0*lake
+	riverDepth := 4.0 + 2.5*rangeMask + 4.0*lake
 	riverCarve := riverT * riverT * riverDepth
 
 	base := 32.0 + plains*4.0 + detail*1.2
-	// Land height before river/canyon carves — the channel rim water fills toward.
 	bankF := base + mount - lakeCarve
+
+	const neighborR = 6
+	const drainR = 16
+	bankSum := 0.0
+	spill := bankF
+	farSpill := bankF
+	nCount := 0
+	for _, oz := range []int{-neighborR, 0, neighborR} {
+		for _, ox := range []int{-neighborR, 0, neighborR} {
+			if ox == 0 && oz == 0 {
+				continue
+			}
+			nb := bankHeight(x+ox, z+oz)
+			bankSum += nb
+			if nb < spill {
+				spill = nb
+			}
+			nCount++
+		}
+	}
+	for _, oz := range []int{-drainR, 0, drainR} {
+		for _, ox := range []int{-drainR, 0, drainR} {
+			if ox == 0 && oz == 0 {
+				continue
+			}
+			nb := bankHeight(x+ox, z+oz)
+			if nb < farSpill {
+				farSpill = nb
+			}
+		}
+	}
+	valleyDepth := (bankSum / float64(nCount)) - bankF
+	valleyW := smoothstep(0.8, 5.0, valleyDepth)
+	riverCarve *= valleyW
+	canyonCarve *= 0.35 + (1.0-0.35)*valleyW
+
 	solidF := bankF - canyonCarve - riverCarve
 	solidY := int(math.Round(solidF))
-	bankY := int(math.Round(bankF))
 
 	waterY := -1
 	if lake > 0.45 {
@@ -153,19 +206,43 @@ func sampleTerrain(x, z int) terrainSample {
 		waterY = lakeSurface
 	}
 
-	// Rivers/canyons: flat free-surface at the bank, not a skin on the V-bed.
-	if riverCarve > 1.5 || canyonCarve > 6.0 {
-		channelSurface := bankY - 1
-		if lake > 0.25 && channelSurface < lakeSurface {
-			channelSurface = lakeSurface
+	const maxChannelDepth = 3
+	if (riverCarve > 1.2 || canyonCarve > 6.0) && valleyW > 0.25 {
+		channelSurface := int(math.Round(spill)) - 1
+		bankSurface := int(math.Round(bankF)) - 1
+		if bankSurface < channelSurface {
+			channelSurface = bankSurface
+		}
+		if bankF-farSpill > 4.0 {
+			drained := int(math.Round(farSpill)) + 1
+			if drained < channelSurface {
+				channelSurface = drained
+			}
+		}
+		if solidY+maxChannelDepth < channelSurface {
+			channelSurface = solidY + maxChannelDepth
+		}
+		if lake > 0.25 && spill <= float64(lakeSurface)+1.0 && farSpill <= float64(lakeSurface)+2.0 {
+			if channelSurface < lakeSurface {
+				channelSurface = lakeSurface
+			}
 		}
 		if channelSurface > solidY && waterY < channelSurface {
 			waterY = channelSurface
 		}
 	}
 
+	if waterY == lakeSurface && bankF-farSpill > 6.0 && farSpill < float64(lakeSurface)-2.0 {
+		drained := int(math.Round(farSpill)) + 1
+		if drained <= solidY {
+			waterY = -1
+		} else if drained < waterY {
+			waterY = drained
+		}
+	}
+
 	if waterY >= 0 && waterY <= solidY {
-		if lake > 0.45 {
+		if lake > 0.45 && farSpill >= float64(lakeSurface)-3.0 {
 			if solidY > lakeSurface-2 {
 				solidY = lakeSurface - 2
 			}
