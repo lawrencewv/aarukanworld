@@ -22,10 +22,12 @@ const (
 	MsgArrowHit     = "arrow_hit"
 	MsgArrowShot    = "arrow_shot"
 	MsgPeerArrow    = "peer_arrow"
-	MsgPeerHealth   = "peer_health"
-	MsgRespawn      = "respawn"
-	MsgSystem       = "system"
-	MsgError        = "error"
+	MsgPeerHealth    = "peer_health"
+	MsgRespawn       = "respawn"
+	MsgFlagsSnapshot = "flags_snapshot"
+	MsgFlagState     = "flag_state"
+	MsgSystem        = "system"
+	MsgError         = "error"
 )
 
 // Combat defaults for sword melee / bow.
@@ -33,12 +35,34 @@ const (
 	MaxHealth           = 100
 	SwordDamage         = 10
 	SwordStrikeRange    = 3.5 // metres; slightly above client reach for lag
-	SwordAttackCooldown  = 400 // milliseconds between validated thrusts
+	SwordAttackCooldown = 400 // milliseconds between validated thrusts
 	SwordKnockbackSpeed = 6.5 // horizontal impulse applied to the victim
 	ArrowDamage         = 10
 	ArrowMaxRange       = 52.0 // metres; matches client arrow flight budget
-	ArrowAttackCooldown  = 450 // milliseconds between validated arrow hits
+	ArrowAttackCooldown = 450  // milliseconds between validated arrow hits
 )
+
+// Capture-flag defaults.
+const (
+	FlagCellSize       = 128           // metres between procedural flag cells
+	FlagCaptureRadius  = 5.0           // horizontal metres; alone-in-zone radius
+	FlagCaptureSeconds = 10.0          // uninterrupted solo presence to claim
+	FlagTickInterval   = 100           // milliseconds between capture ticks
+	FlagEnsureRadius   = 2             // cell chebyshev radius seeded around peers
+)
+
+// FlagWire is one capture flag on the wire.
+type FlagWire struct {
+	ID        string  `json:"id"`
+	X         float64 `json:"x"`
+	Y         float64 `json:"y"`
+	Z         float64 `json:"z"`
+	Radius    float64 `json:"radius"`
+	Owner     string  `json:"owner,omitempty"`
+	Capturing string  `json:"capturing,omitempty"`
+	Progress  float64 `json:"progress"`
+	Contested bool    `json:"contested,omitempty"`
+}
 
 // Message is a JSON-friendly game frame.
 type Message struct {
@@ -49,13 +73,13 @@ type Message struct {
 	X       float64  `json:"x"`
 	Y       float64  `json:"y"`
 	Z       float64  `json:"z"`
-	Yaw      float64 `json:"yaw"`
-	Pitch    float64 `json:"pitch"`
+	Yaw     float64  `json:"yaw"`
+	Pitch   float64  `json:"pitch"`
 	Breaking bool    `json:"breaking,omitempty"`
-	Held     int     `json:"held"`
-	Drawing  bool    `json:"drawing,omitempty"`
+	Held    int      `json:"held"`
+	Drawing bool     `json:"drawing,omitempty"`
 	Swinging bool    `json:"swinging,omitempty"`
-	Block    uint16  `json:"block"`
+	Block   uint16   `json:"block"`
 	CX      int32    `json:"cx"`
 	CZ      int32    `json:"cz"`
 	Blocks  []uint16 `json:"blocks,omitempty"`
@@ -63,6 +87,13 @@ type Message struct {
 	KnockX  float64  `json:"knock_x,omitempty"`
 	KnockZ  float64  `json:"knock_z,omitempty"`
 	Dead    bool     `json:"dead,omitempty"`
+	FlagID  string   `json:"flag_id,omitempty"`
+	Owner   string   `json:"owner,omitempty"`
+	Capturing string `json:"capturing,omitempty"`
+	Progress  float64 `json:"progress"`
+	Radius    float64 `json:"radius,omitempty"`
+	Contested bool    `json:"contested,omitempty"`
+	Flags     []FlagWire `json:"flags,omitempty"`
 }
 
 func chunkCoordFromBlock(bx, bz int32) persist.ChunkCoord {

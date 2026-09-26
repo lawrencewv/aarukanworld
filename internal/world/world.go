@@ -22,15 +22,22 @@ type World struct {
 
 	chunkMu sync.Mutex
 	chunks  map[persist.ChunkCoord]*persist.Chunk
+
+	flagMu   sync.Mutex
+	flags    map[string]*Flag
+	flagOnce sync.Once
 }
 
 func newWorld(id string, store persist.Store) *World {
-	return &World{
+	w := &World{
 		ID:     id,
 		store:  store,
 		peers:  make(map[string]*Peer),
 		chunks: make(map[persist.ChunkCoord]*persist.Chunk),
+		flags:  make(map[string]*Flag),
 	}
+	w.startFlagLoop()
+	return w
 }
 
 func (w *World) addPeer(p *Peer) error {

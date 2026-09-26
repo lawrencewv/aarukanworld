@@ -193,6 +193,8 @@ func (p *Peer) push(msg Message) {
 		msg.Type == MsgBlockPlace ||
 		msg.Type == MsgBlockBreak ||
 		msg.Type == MsgPeerHealth ||
+		msg.Type == MsgFlagsSnapshot ||
+		msg.Type == MsgFlagState ||
 		msg.Type == MsgError ||
 		msg.Type == MsgWelcome
 

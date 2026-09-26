@@ -183,7 +183,7 @@ func TestHandleArrowShotRelaysDirection(t *testing.T) {
 	events := b.Subscribe(8)
 	defer b.Unsubscribe(events)
 
-	w.HandleClient(a, Message{Type: MsgArrowShot, X: 0, Y: 0, Z: -2})
+	w.HandleClient(a, Message{Type: MsgArrowShot, X: 0, Y: 0, Z: -1})
 
 	select {
 	case msg := <-events:

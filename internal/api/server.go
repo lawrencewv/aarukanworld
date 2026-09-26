@@ -120,6 +120,7 @@ func (s *Server) handleWorldWS(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = conn.WriteJSON(world.Message{Type: world.MsgPeerJoin, Nick: nick})
 	}
+	_ = conn.WriteJSON(wld.FlagsSnapshot())
 
 	errCh := make(chan error, 1)
 	go func() {
